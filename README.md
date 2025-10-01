@@ -1,5 +1,5 @@
 
-# NeurIPS_11671
+# GSRF
 
 
 This repository is tested on **NVIDIA H100** GPUs and is built upon the official [3D Gaussian Splatting (3DGS)](https://github.com/graphdeco-inria/gaussian-splatting) framework.
