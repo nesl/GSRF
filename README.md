@@ -1,8 +1,7 @@
 
-# GSRF
+# GSRF: Complex-Valued 3D Gaussian Splatting for Efficient Radio-Frequency Data Synthesis 
 
 
-This repository is tested on **NVIDIA H100** GPUs and is built upon the official [3D Gaussian Splatting (3DGS)](https://github.com/graphdeco-inria/gaussian-splatting) framework.
 
 ## 🛠️ Environment Setup
 
