@@ -1,0 +1,67 @@
+# BLE RSSI dataset
+exp_name: "exp1"
+random_seed: 8371
+
+model:
+  dataset: "ble_rssi"
+  frequency: 2.4e9                  # carrier frequency (Hz), BLE 2.4 GHz band
+  fle_degree: 9                     # max Fourier-Legendre expansion degree
+  data_device: "cuda:0"
+  n_azimuth: 360                    # number of azimuth rays for sphere rendering
+  n_elevation: 90                   # number of elevation rays for sphere rendering
+  white_background: false
+  eval: true                        # enable train/test split
+
+  # train/test split
+  llffhold: 8
+  llffhold_flag: false
+  ratio_train: 0.8
+  split_method: "random"
+  train_index_path: "train_index.txt"
+  test_index_path: "test_index.txt"
+
+  # point cloud initialization
+  gene_init_point: false            # regenerate initial point cloud
+  camera_scale: 1.071               # scale factor for scene extent
+  voxel_size_scale: 1.710           # multiplier on wavelength for grid spacing
+  max_init_points: 50000            # max initial points (subsample if exceeded)
+
+  # FLE (Fourier-Legendre Expansion) settings
+  _fle_init_scale: 0.02888          # initial scale for FLE coefficients
+  _fle_degree_ramp: 500             # increase FLE degree every N iterations
+
+optimization:
+  iterations: 10000
+
+  # learning rates
+  position_lr_init: 5.047e-05       # initial position learning rate
+  position_lr_final: 2.06e-06       # final position learning rate
+  position_lr_delay_mult: 0.008613  # warmup delay multiplier
+  feature_lr: 0.001136              # FLE feature learning rate
+  opacity_lr: 0.03785               # attenuation learning rate
+  scaling_lr: 0.002901              # Gaussian scale learning rate
+  rotation_lr: 0.000502             # Gaussian rotation learning rate
+
+  # loss weights
+  lambda_dssim: 0.0                 # SSIM loss weight (disabled for BLE)
+  lambda_dfourier: 0.0              # Fourier loss weight (disabled for BLE)
+
+  _rest_lr_ratio: 0.1641            # learning rate ratio for rest FLE coefficients vs DC
+
+  # densification and pruning
+  percent_dense: 0.005945           # fraction of scene extent for clone threshold
+  densification_interval: 100       # densify every N iterations
+  opacity_reset_interval: 4000      # reset attenuation every N iterations
+  densify_from_iter: 600            # start densification after this iteration
+  densify_grad_threshold: 0.0001973 # gradient threshold for densification
+  min_attenuation_threshold: 0.003789  # prune Gaussians below this attenuation
+  raddi_size_threshold: 16.91       # prune Gaussians larger than this radius
+
+  random_background: false
+
+pipeline:
+  convert_SHs_python: true
+  compute_cov3D_python: true
+  debug: false
+  radius_rx: 4.219                  # receiver sphere radius for ray tracing
+  rx_modulation: false              # RX path loss modulation (disabled for single-RX)

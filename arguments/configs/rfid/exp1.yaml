@@ -1,0 +1,67 @@
+# RFID spectrum dataset
+
+exp_name: "exp1"
+random_seed: 8371
+
+model:
+  dataset: "rfid"
+  frequency: 915.0e6                # carrier frequency (Hz), RFID UHF band
+  fle_degree: 9                     # max Fourier-Legendre expansion degree
+  data_device: "cuda:0"
+  n_azimuth: 360                    # number of azimuth rays for sphere rendering
+  n_elevation: 90                   # number of elevation rays for sphere rendering
+  white_background: false
+  eval: true                        # enable train/test split
+
+  # train/test split
+  llffhold: 8
+  llffhold_flag: false
+  ratio_train: 0.8
+  split_method: "random"
+  train_index_path: "train_index.txt"
+  test_index_path: "test_index.txt"
+
+  # point cloud initialization
+  gene_init_point: false            # regenerate initial point cloud
+  camera_scale: 2.720               # scale factor for scene extent
+  voxel_size_scale: 1.846           # multiplier on wavelength for grid spacing
+  max_init_points: 50000            # max initial points (subsample if exceeded)
+
+  # FLE (Fourier-Legendre Expansion) settings
+  _fle_init_scale: 0.0928           # initial scale for FLE coefficients
+  _fle_degree_ramp: 100             # increase FLE degree every N iterations
+
+optimization:
+  iterations: 30000
+
+  # learning rates
+  position_lr_init: 0.0001605       # initial position learning rate
+  position_lr_final: 1.18e-07       # final position learning rate
+  position_lr_delay_mult: 0.00264   # warmup delay multiplier
+  feature_lr: 0.002742              # FLE feature learning rate
+  opacity_lr: 0.01149               # attenuation learning rate
+  scaling_lr: 0.001376              # Gaussian scale learning rate
+  rotation_lr: 0.001064             # Gaussian rotation learning rate
+
+  # loss weights
+  lambda_dssim: 0.366               # SSIM loss weight
+  lambda_dfourier: 0.1915           # Fourier loss weight
+
+  # densification and pruning
+  percent_dense: 0.006218           # fraction of scene extent for clone threshold
+  densification_interval: 250       # densify every N iterations
+  opacity_reset_interval: 3500      # reset attenuation every N iterations
+  densify_from_iter: 300            # start densification after this iteration
+  densify_grad_threshold: 0.000323  # gradient threshold for densification
+  min_attenuation_threshold: 0.005347  # prune Gaussians below this attenuation
+  raddi_size_threshold: 5.638       # prune Gaussians larger than this radius
+
+  _rest_lr_ratio: 0.1927            # learning rate ratio for rest FLE coefficients vs DC
+
+  random_background: false
+
+pipeline:
+  convert_SHs_python: true
+  compute_cov3D_python: true
+  debug: false
+  radius_rx: 0.307                  # receiver sphere radius for ray tracing

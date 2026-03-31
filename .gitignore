@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+
+
+# Weights, results, and data (download separately)
+weights/
+results/
+
+# Virtual environment
+.gsrf/
+
+# Data and outputs
+data/
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Tensorboard
+runs/
+events.out.tfevents.*
+
+# C++/CUDA build artifacts (submodules)
+submodules/*/build/
+submodules/*/*.egg-info/
+submodules/*/**/*.so
+submodules/*/**/*.o
+
+# Misc
+*.ply
+*.log
+wandb/
