@@ -43,9 +43,9 @@ Pretrained weights can be downloaded below. Place them under `./weights/`.
 
 | Dataset | Weights |
 |---------|---------|
-| RFID | [download](https://TODO) |
-| BLE | [download](https://TODO) |
-| CSI | [download](https://TODO) |
+| RFID | [download](https://drive.google.com/file/d/1nA_dS0RElolKg4mleupt0MxeAhRE1DcT/view?usp=sharing) |
+| BLE | [download](https://drive.google.com/file/d/1CUvPbWZn3Jqr6SxPznn7GqvrJH6w-Gtg/view?usp=sharing) |
+| CSI | [download](https://drive.google.com/file/d/1w-FCEjzvbkSeFeXxdQz5vsuC9-PIDw_I/view?usp=sharing) |
 
 ```
 ./weights/rfid/
@@ -61,7 +61,7 @@ Pretrained weights can be downloaded below. Place them under `./weights/`.
 bash run_rfid.sh
 ```
 
-This runs both training and inference using `arguments/configs/rfid/exp1.yaml` on GPU 3 by default.
+This runs both training and inference using `arguments/configs/rfid/exp1.yaml` on GPU 0 by default.
 
 ```bash
 bash run_rfid.sh --config path/to.yaml  # use a different config
@@ -90,7 +90,7 @@ python inference_rfid.py --config arguments/configs/rfid/exp1.yaml \
 bash run_ble.sh
 ```
 
-This trains one model per gateway using `arguments/configs/ble/exp1.yaml` on GPU 3 by default. The first gateway is trained fully (geometry + FLE coefficients). Since all gateways share the same physical environment, subsequent gateways reuse the learned geometry and only train their FLE coefficients. Evaluation runs on the test set at each checkpoint.
+This trains one model per gateway using `arguments/configs/ble/exp1.yaml` on GPU 0 by default. The first gateway is trained fully (geometry + FLE coefficients). Since all gateways share the same physical environment, subsequent gateways reuse the learned geometry and only train their FLE coefficients. Evaluation runs on the test set at each checkpoint.
 
 ```bash
 bash run_ble.sh --config path/to.yaml  # use a different config
@@ -117,7 +117,7 @@ python inference_ble.py --config arguments/configs/ble/exp1.yaml \
 bash run_csi.sh
 ```
 
-This runs two-phase training using `arguments/configs/csi/exp1.yaml` on GPU 3 by default:
+This runs two-phase training using `arguments/configs/csi/exp1.yaml` on GPU 0 by default:
 - **Phase 1**: Autoencoder pretraining — learns an encoder that maps uplink CSI to 3D TX positions. The pretrained encoder is saved to `logs/csi/pretrained_encoder.pth` and reused on subsequent runs.
 - **Phase 2**: Per-antenna Gaussian splatting — the first antenna is trained fully (geometry + FLE coefficients). Since all antennas share the same physical environment, subsequent antennas reuse the learned geometry and only train their FLE coefficients. Evaluation runs at each test checkpoint.
 

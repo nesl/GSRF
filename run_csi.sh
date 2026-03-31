@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-GPU="3"
+GPU="0"
 CONFIG="arguments/configs/csi/exp1.yaml"
 
 while [[ $# -gt 0 ]]; do

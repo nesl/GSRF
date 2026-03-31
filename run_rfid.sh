@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-GPU="1"
+GPU="0"
 CONFIG="arguments/configs/rfid/exp1.yaml"
 MODE="both"
 
