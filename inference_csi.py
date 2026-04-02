@@ -31,7 +31,7 @@ def make_viewpoint(tx_pos, rx_pos, n_elevation=9, n_azimuth=36):
 
 # ---- per-antenna evaluation ----
 
-def evaluate_one_antenna(ant_idx, gaussians, encoder, scene_info, pipe_args, bg,
+def evaluate_one_antenna(ant_idx, gaussians, encoder, scene_info, pipe_args,
                          n_azimuth, n_elevation, output_dir):
     device = next(encoder.parameters()).device
     rx_pos = scene_info.antenna_positions[ant_idx].to(device)
@@ -47,7 +47,7 @@ def evaluate_one_antenna(ant_idx, gaussians, encoder, scene_info, pipe_args, bg,
         for sample in test_samples:
             tx_pos = encoder(sample.uplink_re.to(device), sample.uplink_im.to(device))
             viewpoint = make_viewpoint(tx_pos, rx_pos, n_elevation, n_azimuth)
-            render_pkg = render_csi(viewpoint, gaussians, pipe_args, bg,
+            render_pkg = render_csi(viewpoint, gaussians, pipe_args,
                                    n_azimuth=n_azimuth, n_elevation=n_elevation)
             csi_52 = render_pkg["render"].mean(dim=(1, 2))
             pred_re = csi_52[0::2]
@@ -212,13 +212,11 @@ def main():
         gaussians = GaussianModel(model_args)
         load_gaussians_from_checkpoint(gaussians, ckpt_path)
 
-        bg = torch.zeros(52, dtype=torch.float32, device=device)
-
         print(f"  [antenna_{ant_idx}] Loading {os.path.basename(ckpt_path)}...")
 
         ant_output = os.path.join(output_dir, f"antenna_{ant_idx}")
         result, snr_arr = evaluate_one_antenna(
-            ant_idx, gaussians, encoder, scene_info, pipe_args_ns, bg,
+            ant_idx, gaussians, encoder, scene_info, pipe_args_ns,
             n_azimuth, n_elevation, ant_output
         )
 

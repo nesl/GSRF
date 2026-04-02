@@ -71,12 +71,9 @@ class _TracerComplexGaussians(torch.autograd.Function):
                 raster_settings.height,
                 raster_settings.width,
                 raster_settings.fle_degree_active,
-                raster_settings.spectrum_3d_coarse,
                 raster_settings.spectrum_3d_fine,
                 raster_settings.sphere_center,
                 raster_settings.sphere_radius,
-                raster_settings.cond_embd,
-                raster_settings.bg, 
                 raster_settings.debug
                 )
         
@@ -125,7 +122,7 @@ class _TracerComplexGaussians(torch.autograd.Function):
 
         # Restructure args as C++ method expects them
         args = (grad_out_color,
-                means_3d[indices_to_keep], 
+                means_3d[indices_to_keep],
                 cov3d_precomp[indices_to_keep],
                 signal_precomp[indices_to_keep],
                 attenuation[indices_to_keep],
@@ -137,12 +134,9 @@ class _TracerComplexGaussians(torch.autograd.Function):
                 raster_settings.height,
                 raster_settings.width,
                 raster_settings.fle_degree_active,
-                raster_settings.spectrum_3d_coarse,
                 raster_settings.spectrum_3d_fine,
                 raster_settings.sphere_center,
                 raster_settings.sphere_radius,
-                raster_settings.cond_embd,
-                raster_settings.bg, 
                 raster_settings.debug
                 )
         
@@ -191,12 +185,9 @@ class ComplexGaussianTracerSettings(NamedTuple):
     height             : int
     width              : int
     fle_degree_active   : int
-    spectrum_3d_coarse : torch.Tensor
     spectrum_3d_fine   : torch.Tensor
     sphere_center      : torch.Tensor
     sphere_radius      : float
-    cond_embd          : torch.Tensor
-    bg                 : torch.Tensor
     debug              : bool
     gaus_radii         : torch.Tensor
 

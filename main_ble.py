@@ -4,7 +4,6 @@ import os
 import sys
 import json
 import csv
-import time
 from random import randint
 from argparse import ArgumentParser
 
@@ -27,14 +26,14 @@ from utils.train_utils import setup_fle_only_optimizer, init_gaussians_from_refe
 
 # ---- per-gateway evaluation ----
 
-def evaluate_gateway(gaussians, pipe_args, bg, test_samples,
+def evaluate_gateway(gaussians, pipe_args, test_samples,
                      gw_output_dir, gw_name, gw_idx, iteration):
 
     all_mae, all_pred, all_gt = [], [], []
 
     with torch.no_grad():
         for viewpoint in test_samples:
-            render_pkg = render(viewpoint, gaussians, pipe_args, bg)
+            render_pkg = render(viewpoint, gaussians, pipe_args)
             spectrum = render_pkg["render"]
             pred_amp = spectrum.mean().cpu().item()
             gt_amp = viewpoint.spectrum.mean().item()
@@ -111,8 +110,6 @@ def train_one_gateway(gw_idx, gw_name, train_samples, test_samples,
     else:
         gaussians.training_setup(opt_args)
 
-    bg = torch.tensor([0, 0, 0], dtype=torch.float32, device="cuda")
-
     viewpoint_stack = None
     ema_loss = 0.0
     results_per_iter = {}
@@ -137,7 +134,7 @@ def train_one_gateway(gw_idx, gw_name, train_samples, test_samples,
         viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack) - 1))
 
         # forward pass and MSE loss on mean amplitude
-        render_pkg = render(viewpoint_cam, gaussians, pipe_args, bg)
+        render_pkg = render(viewpoint_cam, gaussians, pipe_args)
         spectrum = render_pkg["render"]
         visibility_filter = render_pkg["visibility_filter"]
         radii = render_pkg["radii"]
@@ -183,7 +180,7 @@ def train_one_gateway(gw_idx, gw_name, train_samples, test_samples,
                 ckpt_path = os.path.join(gw_output_dir, f"chkpnt{iteration}.pth")
                 torch.save((gaussians.capture(), iteration), ckpt_path)
 
-                result = evaluate_gateway(gaussians, pipe_args, bg,
+                result = evaluate_gateway(gaussians, pipe_args,
                                          test_samples, gw_output_dir, gw_name, gw_idx, iteration)
                 results_per_iter[iteration] = result
 

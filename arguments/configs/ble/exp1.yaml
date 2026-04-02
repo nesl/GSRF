@@ -64,4 +64,3 @@ pipeline:
   compute_cov3D_python: true
   debug: false
   radius_rx: 4.219                  # receiver sphere radius for ray tracing
-  rx_modulation: false              # RX path loss modulation (disabled for single-RX)

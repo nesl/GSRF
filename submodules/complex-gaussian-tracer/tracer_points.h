@@ -26,23 +26,14 @@ TracerComplexGaussiansCUDA(const torch::Tensor& means_3d,
 					   const int height,
 					   const int width,
 					   const int fle_degree_active,
-					   // const int fle_coef_len_max,
-					   const torch::Tensor& spectrum_3d_coarse,
 					   const torch::Tensor& spectrum_3d_fine,
 					   const torch::Tensor& sphere_center,
-					   const float sphere_radius, 
-					   const torch::Tensor& cond_embd,
-					   const torch::Tensor& background,
-					//    const int input_dim,
-					//    const int hidden_dim,
-					//    const int output_dim, 
-					//    const int total_params,
+					   const float sphere_radius,
 					   const bool debug
 					   );
 
 
-// std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
-std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor> 
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
 TracerComplexGaussiansBackwardCUDA(const torch::Tensor& dL_dout_color,
 							   const torch::Tensor& means_3d,
 							   const torch::Tensor& cov3d_precomp,
@@ -56,20 +47,8 @@ TracerComplexGaussiansBackwardCUDA(const torch::Tensor& dL_dout_color,
 							   const int height,
 							   const int width,
 							   const int fle_degree_active,
-							   // const int fle_coef_len_max,
-							   const torch::Tensor& spectrum_3d_coarse,
 							   const torch::Tensor& spectrum_3d_fine,
 							   const torch::Tensor& sphere_center,
 							   const float sphere_radius,
-							   const torch::Tensor& cond_embd,
-							   const torch::Tensor& background,
-							//    const int input_dim,
-							//    const int hidden_dim,
-							//    const int output_dim, 
-							//    const int total_params,
 							   const bool debug
 							   );
-		
-
-
-

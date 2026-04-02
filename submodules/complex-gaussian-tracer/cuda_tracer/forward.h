@@ -28,19 +28,17 @@ namespace FORWARD
 {
 	
 	// Perform initial steps for each Gaussian prior to rasterization.
-	void preprocess(int P, 
+	void preprocess(int P,
 					const float* means_3d,
 					const float* cov3d_precomp,
 					const float* signal_precomp,
 					const float* gaus_radii,
-					const int H, 
+					const int H,
 					const int W,
-					const float* spectrum_3d_coarse,
 					const glm::vec3* sphere_center,
 					const float sphere_radius,
-					const float* cond_embd,
 					const int fle_degree_active,
-					const int fle_coef_len_max, 
+					const int fle_coef_len_max,
 					float* geom_depths,
 					uint32_t* geom_tiles_touched,
 					uint2* geom_rec_mins,
@@ -53,7 +51,7 @@ namespace FORWARD
 
 
 	// Main rendering method.
-	void render(const dim3 tile_grid, 
+	void render(const dim3 tile_grid,
 				const dim3 block,
 				const float* means_3d,
 				const float* cov3d_precomp,
@@ -66,12 +64,11 @@ namespace FORWARD
 				const float* spectrum_3d_fine,
 				const glm::vec3* sphere_center,
 				const float sphere_radius,
-				const float* bg_color,
 				const uint32_t* bin_point_list,
 				const uint2* img_ranges,
 				const float2* geom_means_2d,
 				const float* geom_rgb,
-				float* img_accum_alpha,  
+				float* img_accum_alpha,
 				uint32_t* img_n_contrib,
 				float* out_color
 				);

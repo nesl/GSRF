@@ -16,305 +16,6 @@
 #include <cooperative_groups/reduce.h>
 namespace cg = cooperative_groups;
 
-#include <cmath>
-
-
-__device__ void computeColorFromMLP_gradients(int idx, 
-                                              const glm::vec3* means, 
-                                              const glm::vec3 campos, 
-                                              const float* all_parameters, 
-											  const float* cond_embd,
-                                              const glm::vec3* dL_doutput_vec, 
-                                              float* dL_dparas,
-                                              glm::vec3* dL_dmeans
-											  ) 
-{
-    // Compute the direction vector
-    glm::vec3 pos = means[idx];
-    glm::vec3 direction_vector = pos - campos;
-	float dir_length = glm::length(direction_vector);
-    glm::vec3 dir = direction_vector / dir_length;
-
-    float dir_input[INPUT_DIM_DIR] = {dir.x, dir.y, dir.z};
-
-    float dir_embedding[EMBEDDING_DIM];
-    create_embedding_fn(dir_input, dir_embedding);
-
-    float vector_dir_pos[INPUT_DIM_EMD];
-    for (int i = 0; i < EMBEDDING_DIM; ++i) {
-        vector_dir_pos[i] = dir_embedding[i];
-    }
-    for (int i = 0; i < EMBEDDING_DIM; ++i) {
-        vector_dir_pos[EMBEDDING_DIM + i] = cond_embd[i];
-    }
-
-    const float* parameter_mlp = all_parameters + TOTAL_PARAMS * idx;
-    float* dL_dparas_one_gaus  = dL_dparas + TOTAL_PARAMS * idx;
-
-    const float* weights_1 = parameter_mlp;
-    const float* bias_1    = weights_1 + (INPUT_DIM_EMD * HIDDEN_DIM_1);
-    const float* weights_2 = bias_1    + HIDDEN_DIM_1;
-    const float* bias_2    = weights_2 + (HIDDEN_DIM_1 * HIDDEN_DIM_2);
-    const float* weights_3 = bias_2    + HIDDEN_DIM_2;
-    const float* bias_3    = weights_3 + (HIDDEN_DIM_2 * OUTPUT_DIM);
-
-    float hidden_1[HIDDEN_DIM_1];
-    for (int i = 0; i < HIDDEN_DIM_1; ++i) {
-        hidden_1[i] = bias_1[i];
-        for (int j = 0; j < INPUT_DIM_EMD; ++j) {
-            hidden_1[i] += vector_dir_pos[j] * weights_1[j * HIDDEN_DIM_1 + i];
-        }
-        hidden_1[i] = leaky_relu(hidden_1[i]);
-    }
-
-    float hidden_2[HIDDEN_DIM_2];
-    for (int i = 0; i < HIDDEN_DIM_2; ++i) {
-        hidden_2[i] = bias_2[i];
-        for (int j = 0; j < HIDDEN_DIM_1; ++j) {
-            hidden_2[i] += hidden_1[j] * weights_2[j * HIDDEN_DIM_2 + i];
-        }
-        hidden_2[i] = leaky_relu(hidden_2[i]);
-    }
-
-    float output[OUTPUT_DIM];
-    for (int i = 0; i < OUTPUT_DIM; ++i) {
-        output[i] = bias_3[i];
-        for (int j = 0; j < HIDDEN_DIM_2; ++j) {
-            output[i] += hidden_2[j] * weights_3[j * OUTPUT_DIM + i];
-        }
-        output[i] = sigmoid(output[i]);
-    }
-
-    float dL_doutput[OUTPUT_DIM] = {dL_doutput_vec->x, dL_doutput_vec->y, dL_doutput_vec->z};
-
-    float dL_dhidden_2[HIDDEN_DIM_2] = {0.0f};
-    float dL_dweights_3[HIDDEN_DIM_2 * OUTPUT_DIM] = {0.0f};
-    float dL_dbias_3[OUTPUT_DIM] = {0.0f};
-    for (int i = 0; i < OUTPUT_DIM; ++i) {
-        float gradient = dL_doutput[i] * sigmoid_derivative(output[i]);
-        dL_dbias_3[i] = gradient;
-        for (int j = 0; j < HIDDEN_DIM_2; ++j) {
-            dL_dweights_3[j * OUTPUT_DIM + i] = gradient * hidden_2[j];
-            dL_dhidden_2[j] += gradient * weights_3[j * OUTPUT_DIM + i];
-        }
-    }
-
-    float dL_dhidden_1[HIDDEN_DIM_1] = {0.0f};
-    float dL_dweights_2[HIDDEN_DIM_1 * HIDDEN_DIM_2] = {0.0f};
-    float dL_dbias_2[HIDDEN_DIM_2] = {0.0f};
-    for (int i = 0; i < HIDDEN_DIM_2; ++i) {
-        float gradient = dL_dhidden_2[i] * leaky_relu_derivative(hidden_2[i]);
-        dL_dbias_2[i] = gradient;
-        for (int j = 0; j < HIDDEN_DIM_1; ++j) {
-            dL_dweights_2[j * HIDDEN_DIM_2 + i] = gradient * hidden_1[j];
-            dL_dhidden_1[j] += gradient * weights_2[j * HIDDEN_DIM_2 + i];
-        }
-    }
-
-    float dL_dvector_dir_pos[INPUT_DIM_EMD] = {0.0f};
-    float dL_dweights_1[INPUT_DIM_EMD * HIDDEN_DIM_1] = {0.0f};
-    float dL_dbias_1[HIDDEN_DIM_1] = {0.0f};
-    for (int i = 0; i < HIDDEN_DIM_1; ++i) {
-        float gradient = dL_dhidden_1[i] * leaky_relu_derivative(hidden_1[i]);
-        dL_dbias_1[i] = gradient;
-        for (int j = 0; j < INPUT_DIM_EMD; ++j) {
-            dL_dweights_1[j * HIDDEN_DIM_1 + i] = gradient * vector_dir_pos[j];
-            dL_dvector_dir_pos[j] += gradient * weights_1[j * HIDDEN_DIM_1 + i];
-        }
-    }
-
-    float dL_ddir_embedding[EMBEDDING_DIM];
-    for (int i = 0; i < EMBEDDING_DIM; ++i) {
-        dL_ddir_embedding[i] = dL_dvector_dir_pos[i];
-    }
-
-    float dL_ddir_input[INPUT_DIM_DIR] = {0.0f};
-    int out_idx = 0;
-    float max_freq = (float)MAX_FREQ_LOG2;
-    int N_freqs = NUM_FREQS;
-
-    for (int i = 0; i < INPUT_DIM_DIR; ++i) {
-        dL_ddir_input[i] = dL_ddir_embedding[i];
-    }
-    out_idx += INPUT_DIM_DIR;
-
-    for (int i = 0; i < N_freqs; ++i) {
-        float freq = powf(2.0f, i * max_freq / (N_freqs - 1));
-
-        for (int j = 0; j < INPUT_DIM_DIR; ++j) {
-            float sin_grad = dL_ddir_embedding[out_idx + j] * sin_derivative(dir_input[j] * freq);
-            float cos_grad = dL_ddir_embedding[out_idx + INPUT_DIM_DIR + j] * cos_derivative(dir_input[j] * freq);
-            dL_ddir_input[j] += freq * (sin_grad + cos_grad);
-        }
-
-        out_idx += 2 * INPUT_DIM_DIR;
-    }
-
-	glm::mat3 identity_matrix = glm::mat3(1.0f); 
-    glm::mat3 outer_norm = glm::outerProduct(direction_vector, direction_vector);
-    glm::mat3 d_norm_dir_d_direction_vector = (1.0f / dir_length) * (identity_matrix - outer_norm / (dir_length * dir_length));
-
-    glm::vec3 grad_dir = glm::vec3(dL_ddir_input[0], dL_ddir_input[1], dL_ddir_input[2]);
-
-    glm::vec3 dL_ddirection_vector = d_norm_dir_d_direction_vector * grad_dir;
-
-    glm::vec3 dL_d_pos = dL_ddirection_vector;
-
-    dL_dmeans[idx] = dL_d_pos;
-
-    int offset = 0;
-
-    for (int i = 0; i < INPUT_DIM_EMD * HIDDEN_DIM_1; ++i) {
-        dL_dparas_one_gaus[offset + i] = dL_dweights_1[i];
-    }
-    offset += INPUT_DIM_EMD * HIDDEN_DIM_1;
-
-    for (int i = 0; i < HIDDEN_DIM_1; ++i) {
-        dL_dparas_one_gaus[offset + i] = dL_dbias_1[i];
-    }
-    offset += HIDDEN_DIM_1;
-
-    for (int i = 0; i < HIDDEN_DIM_1 * HIDDEN_DIM_2; ++i) {
-        dL_dparas_one_gaus[offset + i] = dL_dweights_2[i];
-    }
-    offset += HIDDEN_DIM_1 * HIDDEN_DIM_2;
-
-    for (int i = 0; i < HIDDEN_DIM_2; ++i) {
-        dL_dparas_one_gaus[offset + i] = dL_dbias_2[i];
-    }
-    offset += HIDDEN_DIM_2;
-
-    for (int i = 0; i < HIDDEN_DIM_2 * OUTPUT_DIM; ++i) {
-        dL_dparas_one_gaus[offset + i] = dL_dweights_3[i];
-    }
-    offset += HIDDEN_DIM_2 * OUTPUT_DIM;
-
-    for (int i = 0; i < OUTPUT_DIM; ++i) {
-        dL_dparas_one_gaus[offset + i] = dL_dbias_3[i];
-    }
-}
-
-
-__device__ void computeColorFromSH(int idx, 
-								   int deg, 
-								   int max_coeffs, 
-								   const glm::vec3* means, 
-								   glm::vec3 campos, 
-								   const float* shs, 
-								   const bool* clamped, 
-								   const glm::vec3* dL_dcolor, 
-								   glm::vec3* dL_dmeans, 
-								   glm::vec3* dL_dshs)
-{
-	glm::vec3 pos = means[idx];
-	glm::vec3 dir_orig = pos - campos;
-	glm::vec3 dir = dir_orig / glm::length(dir_orig);
-
-	glm::vec3* sh = ((glm::vec3*)shs) + idx * max_coeffs;
-
-	glm::vec3 dL_dRGB = dL_dcolor[idx];
-	dL_dRGB.x *= clamped[3 * idx + 0] ? 0 : 1;
-	dL_dRGB.y *= clamped[3 * idx + 1] ? 0 : 1;
-	dL_dRGB.z *= clamped[3 * idx + 2] ? 0 : 1;
-
-	glm::vec3 dRGBdx(0, 0, 0);
-	glm::vec3 dRGBdy(0, 0, 0);
-	glm::vec3 dRGBdz(0, 0, 0);
-	float x = dir.x;
-	float y = dir.y;
-	float z = dir.z;
-
-	glm::vec3* dL_dsh = dL_dshs + idx * max_coeffs;
-
-	float dRGBdsh0 = SH_C0;
-	dL_dsh[0] = dRGBdsh0 * dL_dRGB;
-	if (deg > 0) {
-
-		float dRGBdsh1 = -SH_C1 * y;
-		float dRGBdsh2 = SH_C1 * z;
-		float dRGBdsh3 = -SH_C1 * x;
-		dL_dsh[1] = dRGBdsh1 * dL_dRGB;
-		dL_dsh[2] = dRGBdsh2 * dL_dRGB;
-		dL_dsh[3] = dRGBdsh3 * dL_dRGB;
-
-		dRGBdx = -SH_C1 * sh[3];
-		dRGBdy = -SH_C1 * sh[1];
-		dRGBdz = SH_C1 * sh[2];
-
-		if (deg > 1) {
-
-			float xx = x * x, yy = y * y, zz = z * z;
-			float xy = x * y, yz = y * z, xz = x * z;
-
-			float dRGBdsh4 = SH_C2[0] * xy;
-			float dRGBdsh5 = SH_C2[1] * yz;
-			float dRGBdsh6 = SH_C2[2] * (2.f * zz - xx - yy);
-			float dRGBdsh7 = SH_C2[3] * xz;
-			float dRGBdsh8 = SH_C2[4] * (xx - yy);
-			dL_dsh[4] = dRGBdsh4 * dL_dRGB;
-			dL_dsh[5] = dRGBdsh5 * dL_dRGB;
-			dL_dsh[6] = dRGBdsh6 * dL_dRGB;
-			dL_dsh[7] = dRGBdsh7 * dL_dRGB;
-			dL_dsh[8] = dRGBdsh8 * dL_dRGB;
-
-			dRGBdx += SH_C2[0] * y * sh[4] + SH_C2[2] * 2.f * -x * sh[6] + SH_C2[3] * z * sh[7] + SH_C2[4] * 2.f * x * sh[8];
-			dRGBdy += SH_C2[0] * x * sh[4] + SH_C2[1] * z * sh[5] + SH_C2[2] * 2.f * -y * sh[6] + SH_C2[4] * 2.f * -y * sh[8];
-			dRGBdz += SH_C2[1] * y * sh[5] + SH_C2[2] * 2.f * 2.f * z * sh[6] + SH_C2[3] * x * sh[7];
-
-			if (deg > 2) {
-
-				float dRGBdsh9 = SH_C3[0] * y * (3.f * xx - yy);
-				float dRGBdsh10 = SH_C3[1] * xy * z;
-				float dRGBdsh11 = SH_C3[2] * y * (4.f * zz - xx - yy);
-				float dRGBdsh12 = SH_C3[3] * z * (2.f * zz - 3.f * xx - 3.f * yy);
-				float dRGBdsh13 = SH_C3[4] * x * (4.f * zz - xx - yy);
-				float dRGBdsh14 = SH_C3[5] * z * (xx - yy);
-				float dRGBdsh15 = SH_C3[6] * x * (xx - 3.f * yy);
-				dL_dsh[9] = dRGBdsh9 * dL_dRGB;
-				dL_dsh[10] = dRGBdsh10 * dL_dRGB;
-				dL_dsh[11] = dRGBdsh11 * dL_dRGB;
-				dL_dsh[12] = dRGBdsh12 * dL_dRGB;
-				dL_dsh[13] = dRGBdsh13 * dL_dRGB;
-				dL_dsh[14] = dRGBdsh14 * dL_dRGB;
-				dL_dsh[15] = dRGBdsh15 * dL_dRGB;
-
-				dRGBdx += (
-					SH_C3[0] * sh[9] * 3.f * 2.f * xy +
-					SH_C3[1] * sh[10] * yz +
-					SH_C3[2] * sh[11] * -2.f * xy +
-					SH_C3[3] * sh[12] * -3.f * 2.f * xz +
-					SH_C3[4] * sh[13] * (-3.f * xx + 4.f * zz - yy) +
-					SH_C3[5] * sh[14] * 2.f * xz +
-					SH_C3[6] * sh[15] * 3.f * (xx - yy));
-
-				dRGBdy += (
-					SH_C3[0] * sh[9] * 3.f * (xx - yy) +
-					SH_C3[1] * sh[10] * xz +
-					SH_C3[2] * sh[11] * (-3.f * yy + 4.f * zz - xx) +
-					SH_C3[3] * sh[12] * -3.f * 2.f * yz +
-					SH_C3[4] * sh[13] * -2.f * xy +
-					SH_C3[5] * sh[14] * -2.f * yz +
-					SH_C3[6] * sh[15] * -3.f * 2.f * xy);
-
-				dRGBdz += (
-					SH_C3[1] * sh[10] * xy +
-					SH_C3[2] * sh[11] * 4.f * 2.f * yz +
-					SH_C3[3] * sh[12] * 3.f * (2.f * zz - xx - yy) +
-					SH_C3[4] * sh[13] * 4.f * 2.f * xz +
-					SH_C3[5] * sh[14] * (xx - yy));
-			}
-		}
-	}
-
-	glm::vec3 dL_ddir(glm::dot(dRGBdx, dL_dRGB), glm::dot(dRGBdy, dL_dRGB), glm::dot(dRGBdz, dL_dRGB));
-
-	float3 dL_dmean = dnormvdv(float3{ dir_orig.x, dir_orig.y, dir_orig.z }, float3{ dL_ddir.x, dL_ddir.y, dL_ddir.z });
-
-
-	dL_dmeans[idx] += glm::vec3(dL_dmean.x, dL_dmean.y, dL_dmean.z);
-}
-
-
 template <uint32_t C>
 __global__ void __launch_bounds__(BLOCK_X * BLOCK_Y) renderCUDA(const float* __restrict__ dL_dout_color,
 																const float* __restrict__ means_3d,
@@ -328,13 +29,12 @@ __global__ void __launch_bounds__(BLOCK_X * BLOCK_Y) renderCUDA(const float* __r
 																const float* __restrict__ spectrum_3d_fine,
 																const glm::vec3* sphere_center,
 																const float sphere_radius,
-																const float* __restrict__ bg_color,
 																const float* __restrict__ geom_rgb,
 																const uint32_t* __restrict__ bin_point_list,
 																const uint2* __restrict__ img_ranges,
 																const float* __restrict__ final_Ts,
 																const uint32_t* __restrict__ img_n_contrib,
-																float* __restrict__ grad_means_3d,    
+																float* __restrict__ grad_means_3d,
 																float* __restrict__ grad_cov3d_precomp,
 																float* __restrict__ grad_attenuation,
 																float* __restrict__ dL_dcolors,
@@ -543,13 +243,12 @@ void BACKWARD::render(const dim3 grid,
 					  const float* spectrum_3d_fine,
 					  const glm::vec3* sphere_center,
 					  const float sphere_radius,
-					  const float* bg_color,
 					  const float* geom_rgb,
 					  const uint32_t* bin_point_list,
 					  const uint2* img_ranges,
 					  const float* final_Ts,
 					  const uint32_t* img_n_contrib,
-					  float* grad_means_3d,   
+					  float* grad_means_3d,
 					  float* grad_cov3d_precomp,
 					  float* grad_attenuation,
 					  float* dL_dcolors,
@@ -567,13 +266,12 @@ void BACKWARD::render(const dim3 grid,
 												  spectrum_3d_fine,
 												  sphere_center,
 												  sphere_radius,
-												  bg_color,
 												  geom_rgb,
 												  bin_point_list,
 												  img_ranges,
 												  final_Ts,
 												  img_n_contrib,
-												  grad_means_3d, 
+												  grad_means_3d,
 												  grad_cov3d_precomp,
 												  grad_attenuation,
 												  dL_dcolors,
@@ -581,75 +279,4 @@ void BACKWARD::render(const dim3 grid,
 												  );
 
 }
-
-
-
-template<int C>
-__global__ void preprocessCUDA(const int P,
-							   const float3* means_3d,
-							   const float* signal_precomp,
-							   const glm::vec3* sphere_center,
-							   const float sphere_radius,
-							   const float* cond_embd,
-							   const int fle_degree_active,
-							   const int fle_coef_len_max,
-							   bool* geom_clamped,
-							   float* dL_dcolor,
-							   float* grad_means_3d,
-							   float* grad_signal_precomp,
-							   bool debug)
-{
-	auto idx = cg::this_grid().thread_rank();
-	if (idx >= P)
-		return;
-		
-	computeColorFromSH(idx,
-					   fle_degree_active,
-					   fle_coef_len_max,
-					   (glm::vec3*)means_3d,
-					   *sphere_center,
-					   signal_precomp,
-					   geom_clamped,
-					   (glm::vec3*)dL_dcolor,
-					   (glm::vec3*)grad_means_3d,
-					   (glm::vec3*)grad_signal_precomp);
-
-
-
-}
-
-
-void BACKWARD::preprocess(const int P,
-						  const float3* means_3d,
-						  const float* signal_precomp,
-						  const glm::vec3* sphere_center,
-						  const float sphere_radius,
-						  const float* cond_embd,
-						  const int fle_degree_active,
-						  const int fle_coef_len_max, 
-						  bool* geom_clamped,
-						  float* dL_dcolor,
-						  float* grad_means_3d,
-						  float* grad_signal_precomp,
-						  bool debug)
-{
-	// Propagate gradients for remaining steps: finish 3D mean gradients,
-	preprocessCUDA<NUM_CHANNELS> << < (P + 255) / 256, 256 >> > (P, 
-																 means_3d, 
-																 signal_precomp, 
-																 sphere_center, 
-																 sphere_radius, 
-																 cond_embd,
-																 fle_degree_active, 
-																 fle_coef_len_max, 
-																 geom_clamped, 
-																 dL_dcolor, 
-																 grad_means_3d, 
-																 grad_signal_precomp, 
-																 debug);
-}
-
-
-
-
 

@@ -37,7 +37,7 @@ class CSIEncoder(nn.Module):
         return pos
 
 
-# ---- CSI decoder: TX position -> downlink CSI ----
+# ---- CSI decoder: TX position -> uplink CSI (pretraining auxiliary, discarded after Phase 1) ----
 class CSIAutoDecoder(nn.Module):
 
     def __init__(self, n_antennas=8, n_subcarriers=26, hidden_dim=256, latent_dim=3):

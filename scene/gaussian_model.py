@@ -12,8 +12,6 @@ from utils.general_utils import strip_symmetric, build_scaling_rotation, \
 from utils.system_utils import mkdir_p
 
 
-from utils.train_utils import initialize_weights
-from utils.fle_utils import RGB2SH
 
 
 class GaussianModel:

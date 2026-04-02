@@ -30,8 +30,6 @@ def evaluate_gateway(gw_idx, gw_name, test_samples, model_args, opt_args, pipe_a
     gaussians = GaussianModel(model_args)
     load_gaussians_from_checkpoint(gaussians, ckpt_path)
 
-    bg = torch.tensor([0, 0, 0], dtype=torch.float32, device="cuda")
-
     all_mae = []
     all_pred = []
     all_gt = []
@@ -41,7 +39,7 @@ def evaluate_gateway(gw_idx, gw_name, test_samples, model_args, opt_args, pipe_a
         for viewpoint in test_samples:
             t0 = time.time()
 
-            render_pkg = render(viewpoint, gaussians, pipe_args, bg)
+            render_pkg = render(viewpoint, gaussians, pipe_args)
             pred_amp = render_pkg["render"].mean().cpu().item()
 
             infer_times.append((time.time() - t0) * 1000)

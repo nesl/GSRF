@@ -1,11 +1,11 @@
-# WiFi CSI dataset
+# CSI dataset
 
 exp_name: "exp1"
 random_seed: 8371
 
 model:
   dataset: "csi"
-  frequency: 2.4e9                  # carrier frequency (Hz), WiFi 2.4 GHz band
+  frequency: 2.4e9                  # carrier frequency (Hz), 2.4 GHz band
   fle_degree: 9                     # max Fourier-Legendre expansion degree
   n_azimuth: 72                     # number of azimuth rays for sphere rendering
   n_elevation: 18                   # number of elevation rays for sphere rendering

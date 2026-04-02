@@ -23,7 +23,7 @@
 namespace BACKWARD
 {
 	
-	void render(const dim3 grid, 
+	void render(const dim3 grid,
 				const dim3 block,
 				const float* dL_dout_color,
 				const float* means_3d,
@@ -37,7 +37,6 @@ namespace BACKWARD
 				const float* spectrum_3d_fine,
 				const glm::vec3* sphere_center,
 				const float sphere_radius,
-				const float* bg_color,
 				const float* geom_rgb,
 				const uint32_t* bin_point_list,
 				const uint2* img_ranges,
@@ -49,20 +48,6 @@ namespace BACKWARD
 				float* dL_dcolors,
 				bool debug
 				);
-
-	void preprocess(const int P,
-					const float3* means_3d,
-					const float* signal_precomp,
-					const glm::vec3* sphere_center,
-					const float sphere_radius,
-					const float* cond_embd,
-					const int fle_degree_active,
-					const int fle_coef_len_max, 
-					bool* geom_clamped,
-					float* dL_dcolor,
-					float* grad_means_3d,
-					float* grad_signal_precomp,
-					bool debug);
 
 }
 

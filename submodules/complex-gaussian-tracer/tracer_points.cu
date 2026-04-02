@@ -50,17 +50,9 @@ TracerComplexGaussiansCUDA(const torch::Tensor& means_3d,
 					   const int height,
 					   const int width,
 					   const int fle_degree_active,
-					   // const int fle_coef_len_max,
-					   const torch::Tensor& spectrum_3d_coarse,
 					   const torch::Tensor& spectrum_3d_fine,
 					   const torch::Tensor& sphere_center,
 					   const float sphere_radius,
-					   const torch::Tensor& cond_embd,
-					   const torch::Tensor& background,
-					//    const int input_dim,
-					//    const int hidden_dim,
-					//    const int output_dim, 
-					//    const int total_params,
 					   const bool debug
 					   )
 {
@@ -73,7 +65,6 @@ TracerComplexGaussiansCUDA(const torch::Tensor& means_3d,
 	const int H = height;
 	const int W = width;
 
-	// printf("\n\n\nNumber of points in Forward: %d\\nn", P);
 
 	auto int_opts   = means_3d.options().dtype(torch::kInt32);
 	auto float_opts = means_3d.options().dtype(torch::kFloat32);
@@ -106,12 +97,9 @@ TracerComplexGaussiansCUDA(const torch::Tensor& means_3d,
 												W,
 												fle_degree_active,
 												M,
-												spectrum_3d_coarse.contiguous().data_ptr<float>(),
 												spectrum_3d_fine.contiguous().data_ptr<float>(),
 												sphere_center.contiguous().data_ptr<float>(),
 												sphere_radius,
-												cond_embd.contiguous().data_ptr<float>(),
-												background.contiguous().data_ptr<float>(),
 												out_color.contiguous().data_ptr<float>(),
 												geomFunc,
 												binningFunc,
@@ -127,7 +115,7 @@ TracerComplexGaussiansCUDA(const torch::Tensor& means_3d,
 }
 
 
-std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor> 
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
 TracerComplexGaussiansBackwardCUDA(const torch::Tensor& dL_dout_color,
 							   const torch::Tensor& means_3d,
 							   const torch::Tensor& cov3d_precomp,
@@ -141,12 +129,9 @@ TracerComplexGaussiansBackwardCUDA(const torch::Tensor& dL_dout_color,
 							   const int height,
 							   const int width,
 							   const int fle_degree_active,
-							   const torch::Tensor& spectrum_3d_coarse,
 							   const torch::Tensor& spectrum_3d_fine,
 							   const torch::Tensor& sphere_center,
 							   const float sphere_radius,
-							   const torch::Tensor& cond_embd,
-							   const torch::Tensor& background,
 							   const bool debug
 							   )
 {
@@ -155,7 +140,6 @@ TracerComplexGaussiansBackwardCUDA(const torch::Tensor& dL_dout_color,
 	const int H = dL_dout_color.size(1);
 	const int W = dL_dout_color.size(2);
 
-	// printf("\n\n\nNumber of points in Backward: %d\\nn", P);
 
 	const int M = 16;
 
@@ -184,12 +168,9 @@ TracerComplexGaussiansBackwardCUDA(const torch::Tensor& dL_dout_color,
 										W,
 										fle_degree_active,
 										M,
-										spectrum_3d_coarse.contiguous().data_ptr<float>(),
 										spectrum_3d_fine.contiguous().data_ptr<float>(),
 										sphere_center.contiguous().data_ptr<float>(),
 										sphere_radius,
-										cond_embd.contiguous().data_ptr<float>(),
-										background.contiguous().data_ptr<float>(),
 										dL_dcolors.contiguous().data_ptr<float>(),
 										grad_means_3d.contiguous().data_ptr<float>(),
 										grad_cov3d_precomp.contiguous().data_ptr<float>(),

@@ -19,169 +19,6 @@
 namespace cg = cooperative_groups;
 
 
-// Forward method for converting the input spherical harmonics
-// coefficients of each Gaussian to a simple RGB color.
-__device__ glm::vec3 computeColorFromSH(int idx, 
-										int deg, 
-										int max_coeffs, 
-										const glm::vec3* means, 
-										glm::vec3 campos, 
-										const float* shs, 
-										bool* clamped
-										)
-{
-
-	glm::vec3 pos = means[idx];
-	glm::vec3 dir = pos - campos;
-	dir = dir / glm::length(dir);
-
-	glm::vec3* sh = ((glm::vec3*)shs) + idx * max_coeffs;
-	glm::vec3 result = SH_C0 * sh[0];
-
-	if (deg > 0)
-	{
-		float x = dir.x;
-		float y = dir.y;
-		float z = dir.z;
-		result = result 
-					- SH_C1 * y * sh[1]
-					+ SH_C1 * z * sh[2]
-					- SH_C1 * x * sh[3];
-
-		if (deg > 1)
-		{
-			float xx = x * x, yy = y * y, zz = z * z;
-			float xy = x * y, yz = y * z, xz = x * z;
-
-			result = result 
-						+ SH_C2[0] * xy                    * sh[4]
-						+ SH_C2[1] * yz                    * sh[5]
-						+ SH_C2[2] * (2.0f * zz - xx - yy) * sh[6]
-						+ SH_C2[3] * xz                    * sh[7] 
-						+ SH_C2[4] * (xx - yy)             * sh[8];
-
-			if (deg > 2)
-			{
-				result = result
-							+ SH_C3[0] * y  * (3.0f * xx - yy)                    * sh[9]
-							+ SH_C3[1] * xy * z                                   * sh[10] 
-							+ SH_C3[2] * y  * (4.0f * zz - xx - yy)               * sh[11]
-							+ SH_C3[3] * z  * (2.0f * zz - 3.0f * xx - 3.0f * yy) * sh[12]
-							+ SH_C3[4] * x  * (4.0f * zz - xx - yy)               * sh[13] 
-							+ SH_C3[5] * z  * (xx - yy)                           * sh[14]
-							+ SH_C3[6] * x  * (xx - 3.0f * yy)                    * sh[15];
-			}
-		}
-	}
-	result += 0.5f;
-
-	// RGB colors are clamped to positive values. If values are
-	// clamped, we need to keep track of this for the backward pass.
-	clamped[3 * idx + 0] = (result.x < 0);
-	clamped[3 * idx + 1] = (result.y < 0);
-	clamped[3 * idx + 2] = (result.z < 0);
-
-	// clamped[3 * idx + 0] = false;
-	// clamped[3 * idx + 1] = false;
-	// clamped[3 * idx + 2] = false;
-
-	return glm::max(result, 0.0f);
-	// return result;
-
-
-}
-
-
-__device__ glm::vec3 computeColorFromMLP_v2(int idx, 
-											const glm::vec3* means, 
-											glm::vec3 campos, 
-											const float* all_parameters, 
-											const float* cond_embd
-											)
-{
-
-    // Compute the direction vector
-	glm::vec3 pos = means[idx];
-    glm::vec3 direction_vector = pos - campos;
-	float dir_length = glm::length(direction_vector);
-
-    glm::vec3 dir = direction_vector / dir_length;
-
-	float dir_input[INPUT_DIM_DIR] = {dir.x, dir.y, dir.z};
-	// int embedding_dim = INPUT_DIM_DIR + 2 * INPUT_DIM_DIR * NUM_FREQS;
-
-	float dir_embedding[EMBEDDING_DIM];
-	create_embedding_fn(dir_input, dir_embedding);
-
-	// INPUT_DIM_EMD = EMBEDDING_DIM * 2
-	float vector_dir_pos[INPUT_DIM_EMD];
-
-	for (int i = 0; i < EMBEDDING_DIM; ++i) {
-        vector_dir_pos[i] = dir_embedding[i];
-    }
-
-    for (int i = 0; i < EMBEDDING_DIM; ++i) {
-        vector_dir_pos[EMBEDDING_DIM + i] = cond_embd[i];
-    }
-
-    // Pointer to the parameters for the current index
-    const float* parameter_mlp = all_parameters + TOTAL_PARAMS * idx;
-
-    // Extract weights and biases for the first layer
-    const float* weights_1 = parameter_mlp;
-    const float* bias_1    = weights_1 + (INPUT_DIM_EMD * HIDDEN_DIM_1);
-
-    // Extract weights and biases for the second layer
-    const float* weights_2 = bias_1 + HIDDEN_DIM_1;
-    const float* bias_2    = weights_2 + (HIDDEN_DIM_1 * HIDDEN_DIM_2);
-
-    // Extract weights and biases for the third layer
-    const float* weights_3 = bias_2 + HIDDEN_DIM_2;
-    const float* bias_3    = weights_3 + (HIDDEN_DIM_2 * OUTPUT_DIM);
-
-    // First layer computation
-    float hidden_1[HIDDEN_DIM_1];
-    for (int i = 0; i < HIDDEN_DIM_1; ++i) {
-        hidden_1[i] = bias_1[i];
-
-        for (int j = 0; j < INPUT_DIM_EMD; ++j) {
-            hidden_1[i] += vector_dir_pos[j] * weights_1[j * HIDDEN_DIM_1 + i];
-        }
-
-        hidden_1[i] = leaky_relu(hidden_1[i]);
-    }
-
-    // Second layer computation
-    float hidden_2[HIDDEN_DIM_2];
-    for (int i = 0; i < HIDDEN_DIM_2; ++i) {
-        hidden_2[i] = bias_2[i];
-
-        for (int j = 0; j < HIDDEN_DIM_1; ++j) {
-            hidden_2[i] += hidden_1[j] * weights_2[j * HIDDEN_DIM_2 + i];
-        }
-
-        hidden_2[i] = leaky_relu(hidden_2[i]);
-    }
-
-    // Third layer computation
-    float output[OUTPUT_DIM];
-    for (int i = 0; i < OUTPUT_DIM; ++i) {
-        output[i] = bias_3[i];
-
-        for (int j = 0; j < HIDDEN_DIM_2; ++j) {
-            output[i] += hidden_2[j] * weights_3[j * OUTPUT_DIM + i];
-        }
-
-        output[i] = sigmoid(output[i]);
-    }
-
-    // Convert float array to glm::vec3
-    glm::vec3 output_vec = glm::vec3(output[0], output[1], output[2]);
-
-    return output_vec;
-}
-
-
 // Perform initial steps for each Gaussian prior to rasterization.
 template<int C>
 __global__ void preprocessCUDA(int P,
@@ -191,12 +28,10 @@ __global__ void preprocessCUDA(int P,
 							   const float* gaus_radii,
 							   const int H,
 							   const int W,
-							   const float* spectrum_3d_coarse,
 							   const glm::vec3* sphere_center,
 							   const float sphere_radius,
-							   const float* cond_embd,
 							   const int fle_degree_active,
-							   const int fle_coef_len_max, 
+							   const int fle_coef_len_max,
 							   float* geom_depths,
 							   uint32_t* geom_tiles_touched,
 							   uint2* geom_rec_mins,
@@ -274,7 +109,6 @@ __global__ void __launch_bounds__(BLOCK_X * BLOCK_Y) renderCUDA(const float* __r
 																const float* __restrict__ spectrum_3d_fine,
 																const glm::vec3* sphere_center,
 																const float sphere_radius,
-																const float* __restrict__ bg_color,
 																const uint32_t* __restrict__ bin_point_list,
 																const uint2* __restrict__ img_ranges,
 																const float2* __restrict__ geom_means_2d,
@@ -434,7 +268,7 @@ __global__ void __launch_bounds__(BLOCK_X * BLOCK_Y) renderCUDA(const float* __r
 }
 
 
-void FORWARD::render(const dim3 tile_grid, 
+void FORWARD::render(const dim3 tile_grid,
 					 const dim3 block,
 					 const float* means_3d,
 					 const float* cov3d_precomp,
@@ -447,12 +281,11 @@ void FORWARD::render(const dim3 tile_grid,
 					 const float* spectrum_3d_fine,
 					 const glm::vec3* sphere_center,
 					 const float sphere_radius,
-					 const float* bg_color,
 					 const uint32_t* bin_point_list,
 					 const uint2* img_ranges,
 					 const float2* geom_means_2d,
 					 const float* geom_rgb,
-					 float* img_accum_alpha,   
+					 float* img_accum_alpha,
 					 uint32_t* img_n_contrib,
 					 float* out_color
 					 )
@@ -468,12 +301,11 @@ void FORWARD::render(const dim3 tile_grid,
 														spectrum_3d_fine,
 														sphere_center,
 														sphere_radius,
-														bg_color,
 														bin_point_list,
 														img_ranges,
 														geom_means_2d,
 														geom_rgb,
-														img_accum_alpha,  
+														img_accum_alpha,
 														img_n_contrib,
 														out_color
 														);
@@ -488,10 +320,8 @@ void FORWARD::preprocess(int P,
 						 const float* gaus_radii,
 						 const int H,
 						 const int W,
-						 const float* spectrum_3d_coarse,
 						 const glm::vec3* sphere_center,
 						 const float sphere_radius,
-						 const float* cond_embd,
 						 const int fle_degree_active,
 						 const int fle_coef_len_max,
 						 float* geom_depths,
@@ -511,12 +341,10 @@ void FORWARD::preprocess(int P,
 																gaus_radii,
 																H,
 																W,
-																spectrum_3d_coarse,
 																sphere_center,
 																sphere_radius,
-																cond_embd,
 																fle_degree_active,
-																fle_coef_len_max, 
+																fle_coef_len_max,
 																geom_depths,
 																geom_tiles_touched,
 																geom_rec_mins,

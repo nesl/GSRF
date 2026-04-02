@@ -30,97 +30,6 @@
 
 __device__ const float PI = 3.14159265358979323846;
 
-__device__ const float light_speed = 3.0e8f;
-__device__ const float signal_freq = 2.4e9f;
-
-
-// Spherical harmonics coefficients
-__device__ const float SH_C0 = 0.28209479177387814f;
-
-__device__ const float SH_C1 = 0.4886025119029199f;
-
-__device__ const float SH_C2[] = {
-	1.0925484305920792f,
-	-1.0925484305920792f,
-	0.31539156525252005f,
-	-1.0925484305920792f,
-	0.5462742152960396f
-};
-
-__device__ const float SH_C3[] = {
-	-0.5900435899266435f,
-	2.890611442640554f,
-	-0.4570457994644658f,
-	0.3731763325901154f,
-	-0.4570457994644658f,
-	1.445305721320277f,
-	-0.5900435899266435f
-};
-
-
-__forceinline__ __device__ float3 dnormvdv(float3 v,
-                                           float3 dv
-                                           )
-{
-	float sum2 = v.x * v.x + v.y * v.y + v.z * v.z;
-	float invsum32 = 1.0f / sqrt(sum2 * sum2 * sum2);
-
-	float3 dnormvdv;
-	dnormvdv.x = ((+sum2 - v.x * v.x) * dv.x - v.y * v.x * dv.y - v.z * v.x * dv.z) * invsum32;
-	dnormvdv.y = (-v.x * v.y * dv.x + (sum2 - v.y * v.y) * dv.y - v.z * v.y * dv.z) * invsum32;
-	dnormvdv.z = (-v.x * v.z * dv.x - v.y * v.z * dv.y + (sum2 - v.z * v.z) * dv.z) * invsum32;
-	return dnormvdv;
-}
-
-
-__forceinline__ __device__ float sin_func(float x) {
-    return sinf(x);
-}
-
-
-__forceinline__ __device__ float cos_func(float x) {
-    return cosf(x);
-}
-
-
-__forceinline__ __device__ float sin_derivative(float x) {
-    return cosf(x);
-}
-
-
-__forceinline__ __device__ float cos_derivative(float x) {
-    return -sinf(x);
-}
-
-
-__forceinline__ __device__ void create_embedding_fn(const float* input_data, float* output_data) {
-    int out_idx = 0;
-
-    // Include input
-    for (int i = 0; i < INPUT_DIM_DIR; ++i) {
-        output_data[out_idx + i] = input_data[i];
-    }
-    out_idx += INPUT_DIM_DIR;
-
-    float max_freq = (float)MAX_FREQ_LOG2;
-    int N_freqs = NUM_FREQS;
-
-    for (int i = 0; i < N_freqs; ++i) {
-        float freq = powf(2.0f, i * max_freq / (N_freqs - 1));
-
-        for (int j = 0; j < INPUT_DIM_DIR; ++j) {
-            output_data[out_idx + j] = sin_func(input_data[j] * freq);
-        }
-        out_idx += INPUT_DIM_DIR;
-
-        for (int j = 0; j < INPUT_DIM_DIR; ++j) {
-            output_data[out_idx + j] = cos_func(input_data[j] * freq);
-        }
-        out_idx += INPUT_DIM_DIR;
-    }
-}
-
-
 __forceinline__ __device__ void cartesian_to_spherical(const glm::vec3& p_orig,
                                                        const glm::vec3& sphere_center,
                                                        const float* cov3d,
@@ -292,32 +201,6 @@ __forceinline__ __device__ void calculateGradientWrtCov3d(const glm::mat3& dL_di
     dL_dcov3d[1] = dL_d_Cov[0][1] + dL_d_Cov[1][0];
     dL_dcov3d[2] = dL_d_Cov[0][2] + dL_d_Cov[2][0];
     dL_dcov3d[4] = dL_d_Cov[1][2] + dL_d_Cov[2][1];
-}
-
-
-__forceinline__ __device__ float sigmoid(float x)
-{
-	return 1.0f / (1.0f + expf(-x));
-}
-
-
-__forceinline__ __device__ float leaky_relu(float x,
-                                              float alpha = 0.01
-                                              )
-{
-
-    return x >= 0 ? x : alpha * x;
-}
-
-
-__forceinline__ __device__ float sigmoid_derivative(float y) {
-    // y is already the output of the sigmoid function
-    return y * (1.0f - y);
-}
-
-
-__forceinline__ __device__ float leaky_relu_derivative(float x, float alpha = 0.01f) {
-    return x >= 0 ? 1.0f : alpha;
 }
 
 

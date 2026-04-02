@@ -2,17 +2,12 @@
 from argparse import Namespace
 import os
 import torch
-from random import randint
 import uuid
 import random
 
 from .data_painter import paint_spectrum
 from .loss_utils import psnr
 import torch.nn as nn
-
-import lpips
-loss_lpips_t = lpips.LPIPS(net='alex')
-
 
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -32,7 +27,7 @@ def training_report(tb_writer,
                     scene,
                     renderFunc,
                     pipe_args,
-                    dataset_args, background
+                    dataset_args
                     ):
     if tb_writer:
         tb_writer.add_scalar('train_loss_patches/l1_loss', Ll1.item(), iteration)
@@ -59,7 +54,7 @@ def training_report(tb_writer,
                 for idx, viewpoint in enumerate(config['spectrums']):
 
                     image = torch.clamp(renderFunc(viewpoint, scene.gaussians, \
-                                                   pipe_args, background)["render"], 0.0, 1.0)
+                                                   pipe_args)["render"], 0.0, 1.0)
 
                     gt_image = torch.clamp(viewpoint.spectrum.to("cuda"), 0.0, 1.0)
 
@@ -128,15 +123,6 @@ def prepare_output_and_logger(args):
         print("\nTensorboard not available: not logging progress!\n")
 
     return tb_writer
-
-
-# ---- weight initialization ----
-def initialize_weights(module):
-
-    if isinstance(module, nn.Linear):
-        nn.init.kaiming_normal_(module.weight)
-        if module.bias is not None:
-            nn.init.constant_(module.bias, 0)
 
 
 # ---- shared geometry reuse (BLE per-gateway, CSI per-antenna) ----

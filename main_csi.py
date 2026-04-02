@@ -111,7 +111,7 @@ def pretrain_autoencoder(scene_info, args, model_path):
 
 # ---- per-antenna evaluation ----
 
-def evaluate_one_antenna(ant_idx, gaussians, encoder, scene_info, pipe_args, bg,
+def evaluate_one_antenna(ant_idx, gaussians, encoder, scene_info, pipe_args,
                          n_azimuth, n_elevation, ant_output_dir, iteration):
     device = next(encoder.parameters()).device
     rx_pos = scene_info.antenna_positions[ant_idx].to(device)
@@ -126,7 +126,7 @@ def evaluate_one_antenna(ant_idx, gaussians, encoder, scene_info, pipe_args, bg,
         for sample in test_samples:
             tx_pos = encoder(sample.uplink_re.to(device), sample.uplink_im.to(device))
             viewpoint = make_viewpoint(tx_pos, rx_pos, n_elevation, n_azimuth)
-            render_pkg = render_csi(viewpoint, gaussians, pipe_args, bg,
+            render_pkg = render_csi(viewpoint, gaussians, pipe_args,
                                    n_azimuth=n_azimuth, n_elevation=n_elevation)
             csi_52 = render_pkg["render"].mean(dim=(1, 2))
             pred_re = csi_52[0::2]
@@ -202,8 +202,6 @@ def train_one_antenna(ant_idx, encoder, scene_info, args, ant_output_dir, test_i
         gaussians.training_setup(args)
 
     rx_pos = scene_info.antenna_positions[ant_idx].to(device)
-    bg = torch.zeros(52, dtype=torch.float32, device=device)
-
     n_azimuth = getattr(args, 'n_azimuth', 36)
     n_elevation = getattr(args, 'n_elevation', 9)
 
@@ -232,7 +230,7 @@ def train_one_antenna(ant_idx, encoder, scene_info, args, ant_output_dir, test_i
             tx_pos = encoder(sample.uplink_re.to(device), sample.uplink_im.to(device))
         viewpoint = make_viewpoint(tx_pos, rx_pos, n_elevation, n_azimuth)
 
-        render_pkg = render_csi(viewpoint, gaussians, pipe_args, bg,
+        render_pkg = render_csi(viewpoint, gaussians, pipe_args,
                                n_azimuth=n_azimuth, n_elevation=n_elevation)
         rendered = render_pkg["render"]
         visibility_filter = render_pkg["visibility_filter"]
@@ -264,7 +262,7 @@ def train_one_antenna(ant_idx, encoder, scene_info, args, ant_output_dir, test_i
                 }, os.path.join(ant_output_dir, f"chkpnt{iteration}.pth"))
 
                 evaluate_one_antenna(ant_idx, gaussians, encoder, scene_info,
-                                     pipe_args, bg, n_azimuth, n_elevation,
+                                     pipe_args, n_azimuth, n_elevation,
                                      ant_output_dir, iteration)
 
             # densification only for antenna 0 (full training)
@@ -292,7 +290,7 @@ def train_one_antenna(ant_idx, encoder, scene_info, args, ant_output_dir, test_i
                 gaussians.optimizer.step()
                 gaussians.optimizer.zero_grad(set_to_none=True)
 
-    return gaussians, pipe_args, bg
+    return gaussians, pipe_args
 
 
 # ---- main: train all antennas ----
@@ -415,7 +413,7 @@ if __name__ == '__main__':
         mode = "full" if ant_idx == 0 else "FLE-only"
         print(f"\n  Training antenna {ant_idx} [{mode}] (RX={scene_info.antenna_positions[ant_idx].tolist()})")
 
-        gaussians, _, _ = train_one_antenna(
+        gaussians, _ = train_one_antenna(
             ant_idx, encoder, scene_info, args, ant_dir, test_iters,
             ref_gaussians=ref_gaussians
         )

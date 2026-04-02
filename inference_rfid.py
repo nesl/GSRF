@@ -70,10 +70,6 @@ def testing(model_para_args,
         (model_params, first_iter) = torch.load(checkpointpath_inference)
         gaussians.restore(model_params, optimization_para_args)
 
-    bg_color = [1, 1, 1] if model_para_args.white_background else [0, 0, 0]
-    background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
-    bg = torch.rand((3), device="cuda") if optimization_para_args.random_background else background
-
     render_dir = os.path.join(output_dir, "rendered")
     plot_dir = os.path.join(output_dir, "plots")
     os.makedirs(render_dir, exist_ok=True)
@@ -92,7 +88,7 @@ def testing(model_para_args,
     # run inference on test set
     for step_idx, viewpoint_cam in enumerate(tqdm(viewpoint_stack, desc="Inference")):
 
-        render_pkg = render(viewpoint_cam, gaussians, pipeline_para_args, bg)
+        render_pkg = render(viewpoint_cam, gaussians, pipeline_para_args)
 
         spectrum = render_pkg["render"]
 

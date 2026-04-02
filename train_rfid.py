@@ -15,7 +15,7 @@ from arguments import ModelParams, PipelineParams, OptimizationParams, load_conf
 from utils.general_utils import safe_state
 from scene import Scene, GaussianModel
 from gaussian_renderer import render_rfid as render
-from utils.loss_utils import l1_loss, ssim, psnr, l2_loss, fourier_loss
+from utils.loss_utils import l1_loss, ssim, psnr, fourier_loss
 from utils.train_utils import training_report, prepare_output_and_logger
 
 warnings.filterwarnings("ignore", category=UserWarning, module="torchvision.models._utils")
@@ -59,10 +59,6 @@ def training(model_para_args,
         (model_params, first_iter) = torch.load(checkpoint)
         gaussians.restore(model_params, optimization_para_args)
 
-    bg_color = [1, 1, 1] if model_para_args.white_background else [0, 0, 0]
-    background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
-    bg = torch.rand((3), device="cuda") if optimization_para_args.random_background else background
-
     iter_start = torch.cuda.Event(enable_timing=True)
     iter_end   = torch.cuda.Event(enable_timing=True)
 
@@ -92,7 +88,7 @@ def training(model_para_args,
             pipeline_para_args.debug = True
 
         # forward pass
-        render_pkg = render(viewpoint_cam, gaussians, pipeline_para_args, bg)
+        render_pkg = render(viewpoint_cam, gaussians, pipeline_para_args)
 
         spectrum, visibility_filter, radii = \
             render_pkg["render"], render_pkg["visibility_filter"], render_pkg["radii"]
@@ -140,8 +136,7 @@ def training(model_para_args,
                             scene,
                             render,
                             pipeline_para_args,
-                            model_para_args,
-                            bg
+                            model_para_args
                             )
 
             if (iteration in saving_iterations):
