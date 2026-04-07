@@ -156,7 +156,8 @@ def main():
         if cmd_args.iter:
             ckpt_path = os.path.join(gw_path, f"chkpnt{cmd_args.iter}.pth")
         else:
-            ckpts = sorted([f for f in os.listdir(gw_path) if f.startswith("chkpnt")])
+            ckpts = sorted([f for f in os.listdir(gw_path) if f.startswith("chkpnt")],
+                          key=lambda x: int(''.join(filter(str.isdigit, x))))
             if not ckpts:
                 print(f"  {gw_dir_name}: no checkpoints found, skipping")
                 continue

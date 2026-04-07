@@ -135,13 +135,20 @@ def evaluate_one_antenna(ant_idx, gaussians, encoder, scene_info, pipe_args,
             gt_re = sample.downlink_re[ant_idx].to(device)
             gt_im = sample.downlink_im[ant_idx].to(device)
 
-            all_pred_re.append(pred_re.cpu().numpy())
-            all_pred_im.append(pred_im.cpu().numpy())
-            all_gt_re.append(gt_re.cpu().numpy())
-            all_gt_im.append(gt_im.cpu().numpy())
+            # denormalize for fair SNR comparison
+            down_std = scene_info.down_std
+            pred_re_dn = pred_re * down_std + scene_info.down_re_mean
+            pred_im_dn = pred_im * down_std + scene_info.down_im_mean
+            gt_re_dn = gt_re * down_std + scene_info.down_re_mean
+            gt_im_dn = gt_im * down_std + scene_info.down_im_mean
 
-            err = ((pred_re - gt_re)**2 + (pred_im - gt_im)**2).sum().item()
-            gt_pwr = (gt_re**2 + gt_im**2).sum().item()
+            all_pred_re.append(pred_re_dn.cpu().numpy())
+            all_pred_im.append(pred_im_dn.cpu().numpy())
+            all_gt_re.append(gt_re_dn.cpu().numpy())
+            all_gt_im.append(gt_im_dn.cpu().numpy())
+
+            err = ((pred_re_dn - gt_re_dn)**2 + (pred_im_dn - gt_im_dn)**2).sum().item()
+            gt_pwr = (gt_re_dn**2 + gt_im_dn**2).sum().item()
             all_snr.append(-10 * np.log10(err / (gt_pwr + 1e-8) + 1e-10))
 
     snr_arr = np.array(all_snr)

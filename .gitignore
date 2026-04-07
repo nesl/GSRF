@@ -7,7 +7,6 @@ __pycache__/
 dist/
 build/
 
-
 # Weights, results, and data (download separately)
 weights/
 results/
