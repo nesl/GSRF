@@ -145,3 +145,7 @@ python inference_csi.py --config arguments/configs/csi/exp1.yaml \
 ## 6. Acknowledgments
 
 This codebase is adapted from [3D Gaussian Splatting (3DGS)](https://github.com/graphdeco-inria/gaussian-splatting) by the GraphDECO research group at Inria.
+
+## 7. License
+
+BSD 3-Clause License. See the [LICENSE](LICENSE) file for details.
