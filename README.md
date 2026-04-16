@@ -1,7 +1,4 @@
 
-# GSRF: Complex-Valued 3D Gaussian Splatting for Efficient Radio-Frequency Data Synthesis
-
-We introduce **GSRF**, a framework that extends 3D Gaussian Splatting (3DGS) from the optical domain to the RF domain, enabling efficient RF data synthesis.
 
 ---
 
